@@ -65,7 +65,7 @@ st.markdown("""
 
 # Title
 st.markdown('<h1 class="main-header">🏎️ F1 Race Predictor</h1>', unsafe_allow_html=True)
-st.markdown("**Predict top 3 finishers using AI trained on 2023-2025 F1 data**")
+st.markdown("**Predict top 3 finishers using a Machine Learning model trained on 2023-2025 F1 data**")
 
 # Train model function for cloud deployment
 @st.cache_resource
@@ -285,25 +285,53 @@ col1, col2 = st.columns([3, 2])
 
 with col1:
     st.markdown('<div class="sub-header">🏎️ Qualifying Results</div>', unsafe_allow_html=True)
-    st.markdown("*Set the qualifying positions for each driver:*")
+    st.markdown("*Select which driver qualified in each position:*")
     
-    # Create qualifying position inputs
-    qualifying_positions = {}
+    # Create grid position assignments
+    grid_positions = {}
     
-    # Create a grid layout for qualifying inputs
-    grid_cols = st.columns(2)
+    # Create a 4-column layout for the grid (P1-P5, P6-P10, P11-P15, P16-P20)
+    grid_cols = st.columns(4)
     
-    for i, driver in enumerate(driver_names):
-        with grid_cols[i % 2]:
-            team = drivers_df[drivers_df['name'] == driver]['team'].iloc[0]
-            default_pos = i + 1
+    # Column headers
+    with grid_cols[0]:
+        st.markdown("**🥇 Positions 1-5**")
+    with grid_cols[1]:
+        st.markdown("**🥈 Positions 6-10**")
+    with grid_cols[2]:
+        st.markdown("**🥉 Positions 11-15**")
+    with grid_cols[3]:
+        st.markdown("**📍 Positions 16-20**")
+    
+    # Create dropdowns for each grid position
+    for pos in range(1, 21):
+        col_index = (pos - 1) // 5  # Which column (0-3)
+        
+        with grid_cols[col_index]:
+            # Create driver options with team info
+            driver_options = []
+            for _, driver in drivers_df.iterrows():
+                team_short = driver['team'].replace(' F1 Team', '').replace(' Racing', '')[:12]
+                driver_options.append(f"{driver['name']} ({team_short})")
             
-            qual_pos = st.number_input(
-                f"**{driver}** ({team})",
-                min_value=1, max_value=20, value=default_pos,
-                key=f"qual_{i}"
+            # Default selection (try to match position with driver index, or first available)
+            default_index = min(pos - 1, len(driver_options) - 1)
+            
+            selected_driver = st.selectbox(
+                f"P{pos}:",
+                options=driver_options,
+                index=default_index,
+                key=f"grid_pos_{pos}"
             )
-            qualifying_positions[driver] = qual_pos
+            
+            # Extract driver name from selection
+            driver_name = selected_driver.split(" (")[0]
+            grid_positions[pos] = driver_name
+    
+    # Convert grid positions to qualifying positions for the model
+    qualifying_positions = {}
+    for position, driver_name in grid_positions.items():
+        qualifying_positions[driver_name] = position
 
     # Predict button
     if st.button("🔮 Predict Race Results", type="primary", use_container_width=True):
