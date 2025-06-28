@@ -7,6 +7,13 @@ from plotly.subplots import make_subplots
 import warnings
 warnings.filterwarnings('ignore')
 
+# Import ML libraries
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import roc_auc_score
+import joblib
+import os
+
 # Page config
 st.set_page_config(
     page_title="F1 Race Predictor",
@@ -15,7 +22,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS (same as before)
 st.markdown("""
 <style>
     .main-header {
@@ -31,13 +38,6 @@ st.markdown("""
         color: #4ECDC4;
         margin-top: 2rem;
         margin-bottom: 1rem;
-    }
-    .driver-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
-        border-left: 5px solid #FF6B6B;
     }
     .prediction-high {
         background-color: #d4edda;
@@ -67,34 +67,124 @@ st.markdown("""
 st.markdown('<h1 class="main-header">🏎️ F1 Race Predictor</h1>', unsafe_allow_html=True)
 st.markdown("**Predict top 3 finishers using AI trained on 2023-2025 F1 data**")
 
-# Load the saved model
+# Train model function for cloud deployment
 @st.cache_resource
-def load_model():
-    """Load the saved F1 prediction model"""
-    try:
-        import joblib
-        model_package = joblib.load('f1_prediction_model.pkl')
+def load_or_train_model():
+    """Load saved model or retrain if not available/incompatible"""
+    
+    model_file = 'f1_prediction_model.pkl'
+    
+    # For cloud deployment, always retrain to avoid compatibility issues
+    st.info("🔄 Training model with cloud environment for compatibility...")
+    
+    # Check for training data
+    data_file = 'enhanced_combined.csv'
+    if not os.path.exists(data_file):
+        st.error(f"""
+        ❌ Training data not found!
+        
+        Please upload `enhanced_combined.csv` to train the model.
+        
+        This file should contain your 2023-2025 F1 data with all engineered features.
+        """)
+        st.stop()
+    
+    # Retrain model
+    with st.spinner("🏎️ Training F1 prediction model... (this may take a minute)"):
+        
+        # Load data
+        df = pd.read_csv(data_file)
+        st.info(f"📊 Loaded {len(df)} records for training")
+        
+        # Create target variable
+        df['top_3_finish'] = (df['race_position'] <= 3).astype(int)
+        
+        # Feature selection (key features that should exist)
+        feature_columns = [
+            'qualifying_position', 'driver_races_completed', 'driver_recent_avg_position',
+            'team_season_avg_position', 'driver_circuit_avg_position', 'driver_career_wins',
+            'driver_career_podiums', 'driver_career_points_rate', 'driver_recent_avg_qual_position',
+            'driver_recent_wins', 'driver_recent_podiums', 'team_season_wins',
+            'team_season_podiums', 'team_season_points_rate', 'is_wet_race',
+            'avg_air_temp', 'avg_track_temp', 'avg_humidity', 'total_rainfall'
+        ]
+        
+        # Check available features
+        available_features = [col for col in feature_columns if col in df.columns]
+        
+        # Prepare data
+        X = df[available_features].copy()
+        y = df['top_3_finish'].copy()
+        
+        # Handle boolean columns
+        bool_columns = X.select_dtypes(include=['bool']).columns
+        if len(bool_columns) > 0:
+            X[bool_columns] = X[bool_columns].astype(int)
+        
+        # Handle missing values
+        imputer = SimpleImputer(strategy='median')
+        X_processed = imputer.fit_transform(X)
+        
+        # Train/test split by year
+        train_mask = df['meeting_year'].isin([2023, 2024])
+        test_mask = df['meeting_year'] == 2025
+        
+        X_train = X_processed[train_mask]
+        X_test = X_processed[test_mask]
+        y_train = y[train_mask]
+        y_test = y[test_mask]
+        
+        # Train Random Forest
+        model = RandomForestClassifier(
+            random_state=42,
+            n_estimators=100,  # Reduced for faster training
+            max_depth=10,
+            class_weight='balanced'
+        )
+        
+        model.fit(X_train, y_train)
+        
+        # Evaluate
+        test_accuracy = model.score(X_test, y_test)
+        test_auc = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])
+        
+        # Create model package
+        model_package = {
+            'model': model,
+            'imputer': imputer,
+            'features': available_features,
+            'model_type': 'Random Forest',
+            'model_version': '4.0_cloud',
+            'performance_metrics': {
+                'test_accuracy': test_accuracy,
+                'test_auc': test_auc,
+                'features_count': len(available_features),
+                'train_samples': len(X_train),
+                'test_samples': len(X_test)
+            },
+            'training_years': [2023, 2024],
+            'validation_year': 2025
+        }
+        
+        # Save model
+        try:
+            joblib.dump(model_package, model_file)
+        except:
+            pass  # Don't fail if can't save
+        
+        st.success(f"✅ Model trained! Accuracy: {test_accuracy:.1%}, AUC: {test_auc:.3f}")
+        
         return model_package
-    except FileNotFoundError:
-        st.error("❌ Model file 'f1_prediction_model.pkl' not found!")
-        st.error("Please run the model training and saving script first.")
-        return None
-    except Exception as e:
-        st.error(f"❌ Error loading model: {str(e)}")
-        return None
 
 # Load model
-model_package = load_model()
-if model_package is None:
-    st.stop()
+model_package = load_or_train_model()
 
 # Extract model components
 final_model = model_package['model']
 available_features = model_package['features'] 
 imputer = model_package['imputer']
-scaler = model_package.get('scaler', None)  # Optional component
 
-# Display model info
+# Display model info in sidebar
 st.sidebar.markdown("---")
 st.sidebar.markdown("**🤖 Model Info**")
 st.sidebar.markdown(f"**Type**: {model_package['model_type']}")
@@ -102,10 +192,8 @@ st.sidebar.markdown(f"**Version**: {model_package['model_version']}")
 st.sidebar.markdown(f"**Accuracy**: {model_package['performance_metrics']['test_accuracy']:.1%}")
 st.sidebar.markdown(f"**AUC**: {model_package['performance_metrics']['test_auc']:.3f}")
 st.sidebar.markdown(f"**Features**: {model_package['performance_metrics']['features_count']}")
-st.sidebar.markdown(f"**Training**: {'-'.join(map(str, model_package['training_years']))}")
-st.sidebar.markdown(f"**Validation**: {model_package['validation_year']}")
 
-# Load model and data from session state or create mock data for demo
+# Real 2025 drivers (same as before)
 @st.cache_data
 def get_default_drivers():
     """Get list of current F1 drivers and teams (Real 2025 lineup)"""
@@ -133,86 +221,12 @@ def get_default_drivers():
     ]
     return pd.DataFrame(drivers_2025_current)
 
-def create_mock_prediction_data(drivers_df, qualifying_positions):
-    """Create mock data structure for predictions"""
-    
-    # Default team performance values (based on 2025 actual performance)
-    team_performance = {
-        "Red Bull Racing": {"avg_pos": 5.5, "points_rate": 0.75},      # Max + Yuki
-        "McLaren": {"avg_pos": 3.2, "points_rate": 0.90},              # Lando + Oscar dominant
-        "Ferrari": {"avg_pos": 5.6, "points_rate": 0.65},              # Charles + Lewis adaptation
-        "Mercedes": {"avg_pos": 7.0, "points_rate": 0.60},             # George + Kimi rookie
-        "Aston Martin": {"avg_pos": 9.5, "points_rate": 0.45},         # Fernando + Lance
-        "Alpine": {"avg_pos": 11.0, "points_rate": 0.35},              # Pierre + Franco
-        "Williams": {"avg_pos": 9.0, "points_rate": 0.50},             # Carlos + Alex
-        "Kick Sauber": {"avg_pos": 12.5, "points_rate": 0.30},        # Nico + Gabriel
-        "Haas F1 Team": {"avg_pos": 13.0, "points_rate": 0.25},       # Esteban + Oliver
-        "Racing Bulls": {"avg_pos": 11.5, "points_rate": 0.35},       # Isack + Liam
-    }
-    
-    # Driver performance (based on 2025 actual results)
-    driver_performance = {
-        "Max VERSTAPPEN": {"races": 60, "recent_avg": 3.6, "career_wins": 30, "circuit_avg": 4.0},
-        "Lando NORRIS": {"races": 45, "recent_avg": 3.7, "career_wins": 8, "circuit_avg": 4.2},
-        "Oscar PIASTRI": {"races": 25, "recent_avg": 2.7, "career_wins": 5, "circuit_avg": 3.5},
-        "Charles LECLERC": {"races": 50, "recent_avg": 4.7, "career_wins": 12, "circuit_avg": 5.0},
-        "George RUSSELL": {"races": 45, "recent_avg": 4.4, "career_wins": 6, "circuit_avg": 5.2},
-        "Lewis HAMILTON": {"races": 85, "recent_avg": 6.4, "career_wins": 25, "circuit_avg": 6.8},  # Ferrari adaptation
-        "Fernando ALONSO": {"races": 75, "recent_avg": 9.0, "career_wins": 15, "circuit_avg": 8.5},
-        "Carlos SAINZ": {"races": 55, "recent_avg": 8.5, "career_wins": 5, "circuit_avg": 9.0},
-        "Pierre GASLY": {"races": 50, "recent_avg": 11.0, "career_wins": 2, "circuit_avg": 10.5},
-        "Yuki TSUNODA": {"races": 35, "recent_avg": 7.0, "career_wins": 0, "circuit_avg": 8.0},
-        "Alexander ALBON": {"races": 40, "recent_avg": 10.1, "career_wins": 0, "circuit_avg": 11.0},
-        "Lance STROLL": {"races": 50, "recent_avg": 12.0, "career_wins": 0, "circuit_avg": 12.5},
-        "Nico HULKENBERG": {"races": 65, "recent_avg": 11.5, "career_wins": 0, "circuit_avg": 12.0},
-        "Esteban OCON": {"races": 45, "recent_avg": 13.0, "career_wins": 1, "circuit_avg": 13.5},
-        # Rookies/newer drivers with limited data
-        "Kimi ANTONELLI": {"races": 10, "recent_avg": 9.0, "career_wins": 0, "circuit_avg": 10.0},
-        "Gabriel BORTOLETO": {"races": 10, "recent_avg": 14.0, "career_wins": 0, "circuit_avg": 15.0},
-        "Isack HADJAR": {"races": 10, "recent_avg": 11.4, "career_wins": 0, "circuit_avg": 12.0},
-        "Franco COLAPINTO": {"races": 15, "recent_avg": 13.5, "career_wins": 0, "circuit_avg": 14.0},
-        "Oliver BEARMAN": {"races": 10, "recent_avg": 15.0, "career_wins": 0, "circuit_avg": 16.0},
-        "Liam LAWSON": {"races": 20, "recent_avg": 10.0, "career_wins": 0, "circuit_avg": 11.0},
-    }
-    
-    prediction_data = []
-    
-    for idx, (driver_name, qual_pos) in enumerate(qualifying_positions.items()):
-        team = drivers_df[drivers_df['name'] == driver_name]['team'].iloc[0]
-        
-        # Get performance data (use defaults if not available)
-        team_perf = team_performance.get(team, {"avg_pos": 12.0, "points_rate": 0.3})
-        driver_perf = driver_performance.get(driver_name, {
-            "races": 20, "recent_avg": 12.0, "career_wins": 0, "circuit_avg": 12.0
-        })
-        
-        prediction_data.append({
-            'full_name': driver_name,
-            'team_name': team,
-            'qualifying_position': qual_pos,
-            'driver_races_completed': driver_perf["races"],
-            'driver_recent_avg_position': driver_perf["recent_avg"],
-            'team_season_avg_position': team_perf["avg_pos"],
-            'driver_circuit_avg_position': driver_perf["circuit_avg"],
-            'driver_career_wins': driver_perf["career_wins"],
-            'driver_career_podiums': driver_perf["career_wins"] * 2.5,  # Estimate
-            'driver_career_points_rate': team_perf["points_rate"],
-            'is_wet_race': 0,  # Will be set by user
-            'avg_air_temp': 25.0,  # Default values
-            'avg_track_temp': 35.0,
-            'avg_humidity': 60.0,
-            'total_rainfall': 0
-        })
-    
-    return pd.DataFrame(prediction_data)
-
 def predict_race_results(prediction_data, model_package):
     """Make predictions using the trained model"""
     
     model = model_package['model']
     features = model_package['features']
     imputer = model_package['imputer']
-    scaler = model_package.get('scaler', None)
     
     # Ensure all required features are present
     for feature in features:
@@ -230,10 +244,6 @@ def predict_race_results(prediction_data, model_package):
     # Preprocess
     X_processed = imputer.transform(X)
     
-    # Scale if needed (for Logistic Regression)
-    if scaler is not None:
-        X_processed = scaler.transform(X_processed)
-    
     # Make predictions
     probabilities = model.predict_proba(X_processed)[:, 1]  # Probability of top 3
     predictions = model.predict(X_processed)
@@ -245,14 +255,10 @@ def predict_race_results(prediction_data, model_package):
     
     return results.sort_values('top_3_probability', ascending=False)
 
-# Initialize session state
-if 'predictions' not in st.session_state:
-    st.session_state.predictions = None
-
+# Rest of the Streamlit interface (same as before)
 # Sidebar - Race Setup
 st.sidebar.markdown('<div class="sub-header">🏁 Race Setup</div>', unsafe_allow_html=True)
 
-# Race selection
 race_name = st.sidebar.selectbox(
     "Select Race",
     ["Austrian Grand Prix", "British Grand Prix", "Hungarian Grand Prix", 
@@ -270,6 +276,10 @@ humidity = st.sidebar.slider("Humidity (%)", 30, 90, 60)
 drivers_df = get_default_drivers()
 driver_names = drivers_df['name'].tolist()
 
+# Initialize session state
+if 'predictions' not in st.session_state:
+    st.session_state.predictions = None
+
 # Main content area
 col1, col2 = st.columns([3, 2])
 
@@ -286,8 +296,6 @@ with col1:
     for i, driver in enumerate(driver_names):
         with grid_cols[i % 2]:
             team = drivers_df[drivers_df['name'] == driver]['team'].iloc[0]
-            
-            # Default qualifying position (P1-P20)
             default_pos = i + 1
             
             qual_pos = st.number_input(
@@ -300,19 +308,44 @@ with col1:
     # Predict button
     if st.button("🔮 Predict Race Results", type="primary", use_container_width=True):
         try:
-            # Create prediction data
-            prediction_data = create_mock_prediction_data(drivers_df, qualifying_positions)
+            # Create prediction data with simplified approach
+            prediction_data = []
             
-            # Add weather conditions
-            prediction_data['is_wet_race'] = 1 if is_wet else 0
-            prediction_data['avg_air_temp'] = air_temp
-            prediction_data['avg_track_temp'] = track_temp
-            prediction_data['avg_humidity'] = humidity
-            prediction_data['total_rainfall'] = 5 if is_wet else 0
+            for driver_name, qual_pos in qualifying_positions.items():
+                team = drivers_df[drivers_df['name'] == driver_name]['team'].iloc[0]
+                
+                # Create basic feature set (will be expanded with defaults)
+                driver_data = {
+                    'full_name': driver_name,
+                    'team_name': team,
+                    'qualifying_position': qual_pos,
+                    'is_wet_race': 1 if is_wet else 0,
+                    'avg_air_temp': air_temp,
+                    'avg_track_temp': track_temp,
+                    'avg_humidity': humidity,
+                    'total_rainfall': 5 if is_wet else 0,
+                    # Add default values for other features
+                    'driver_races_completed': 30,  # Default experience
+                    'driver_recent_avg_position': 10,  # Default recent form
+                    'team_season_avg_position': 10,  # Default team performance
+                    'driver_circuit_avg_position': 10,  # Default circuit performance
+                    'driver_career_wins': 1,
+                    'driver_career_podiums': 3,
+                    'driver_career_points_rate': 0.5,
+                    'driver_recent_avg_qual_position': qual_pos,
+                    'driver_recent_wins': 0,
+                    'driver_recent_podiums': 1,
+                    'team_season_wins': 1,
+                    'team_season_podiums': 3,
+                    'team_season_points_rate': 0.5
+                }
+                
+                prediction_data.append(driver_data)
             
-            # Make predictions using the real model
-            results = predict_race_results(prediction_data, model_package)
+            prediction_df = pd.DataFrame(prediction_data)
             
+            # Make predictions
+            results = predict_race_results(prediction_df, model_package)
             st.session_state.predictions = results
             st.success("✅ Predictions generated!")
             
@@ -359,11 +392,7 @@ with col2:
         display_results['top_3_probability'] = (display_results['top_3_probability'] * 100).round(1)
         display_results.columns = ['Driver', 'Qualifying Position', 'Podium Probability (%)']
         
-        st.dataframe(
-            display_results,
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(display_results, use_container_width=True, hide_index=True)
         
         # Visualization
         st.markdown("**📈 Probability Chart:**")
@@ -383,7 +412,7 @@ with col2:
     else:
         st.info("👆 Set qualifying positions and click 'Predict Race Results' to see predictions!")
 
-# Additional information
+# Footer with model info
 st.markdown("---")
 col_info1, col_info2, col_info3 = st.columns(3)
 
@@ -415,6 +444,5 @@ with col_info3:
     - **World-class performance!**
     """)
 
-# Footer
 st.markdown("---")
 st.markdown("**Built with ❤️ using F1 data from 2023-2025 • Powered by Streamlit**")
