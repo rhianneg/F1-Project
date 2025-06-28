@@ -198,14 +198,17 @@ st.sidebar.markdown(f"**Features**: {model_package['performance_metrics']['featu
 def get_default_drivers():
     """Get list of current F1 drivers and teams (Real 2025 lineup)"""
     drivers_2025_current = [
+        {"name": "Oscar PIASTRI", "team": "McLaren", "number": 81},
         {"name": "Max VERSTAPPEN", "team": "Red Bull Racing", "number": 1},
         {"name": "Lando NORRIS", "team": "McLaren", "number": 4},
-        {"name": "Gabriel BORTOLETO", "team": "Kick Sauber", "number": 5},
+        {"name": "Lewis HAMILTON", "team": "Ferrari", "number": 44},
+        {"name": "Charles LECLERC", "team": "Ferrari", "number": 16},
+        {"name": "Carlos SAINZ", "team": "Williams", "number": 55},
+        {"name": "George RUSSELL", "team": "Mercedes", "number": 63},
+        {"name": "Kimi ANTONELLI", "team": "Mercedes", "number": 12},
         {"name": "Isack HADJAR", "team": "Racing Bulls", "number": 6},
         {"name": "Pierre GASLY", "team": "Alpine", "number": 10},
-        {"name": "Kimi ANTONELLI", "team": "Mercedes", "number": 12},
         {"name": "Fernando ALONSO", "team": "Aston Martin", "number": 14},
-        {"name": "Charles LECLERC", "team": "Ferrari", "number": 16},
         {"name": "Lance STROLL", "team": "Aston Martin", "number": 18},
         {"name": "Yuki TSUNODA", "team": "Red Bull Racing", "number": 22},
         {"name": "Alexander ALBON", "team": "Williams", "number": 23},
@@ -213,10 +216,7 @@ def get_default_drivers():
         {"name": "Liam LAWSON", "team": "Racing Bulls", "number": 30},
         {"name": "Esteban OCON", "team": "Haas F1 Team", "number": 31},
         {"name": "Franco COLAPINTO", "team": "Alpine", "number": 43},
-        {"name": "Lewis HAMILTON", "team": "Ferrari", "number": 44},
-        {"name": "Carlos SAINZ", "team": "Williams", "number": 55},
-        {"name": "George RUSSELL", "team": "Mercedes", "number": 63},
-        {"name": "Oscar PIASTRI", "team": "McLaren", "number": 81},
+        {"name": "Gabriel BORTOLETO", "team": "Kick Sauber", "number": 5},
         {"name": "Oliver BEARMAN", "team": "Haas F1 Team", "number": 87},
     ]
     return pd.DataFrame(drivers_2025_current)
