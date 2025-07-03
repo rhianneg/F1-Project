@@ -1,5 +1,5 @@
 Project Link: https://f1-prediction-project.streamlit.app/
-Last Data Update: Canadian GP 2025
+Last Data Update: Austrian GP 2025 race
 
 # My F1 Race Predictor
 
