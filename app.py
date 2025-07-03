@@ -77,7 +77,7 @@ st.markdown('<h1 class="main-header">🏎️ F1 Race Predictor</h1>', unsafe_all
 st.markdown("**Predict top 3 finishers using a Machine Learning model trained on 2023-2025 F1 data**")
 
 # Last data update info
-st.markdown('<div class="update-info">📅 Last Data Update: Canadian GP 2025</div>', unsafe_allow_html=True)
+st.markdown('<div class="update-info">📅 Last Data Update: Austrian GP 2025 Race</div>', unsafe_allow_html=True)
 
 # Train model function for cloud deployment
 @st.cache_resource
