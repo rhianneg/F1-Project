@@ -77,7 +77,7 @@ st.markdown('<h1 class="main-header">🏎️ F1 Race Predictor</h1>', unsafe_all
 st.markdown("**Predict top 3 finishers using a Machine Learning model trained on 2023-2025 F1 data**")
 
 # Last data update info
-st.markdown('<div class="update-info">📅 Last Data Update: Austrian GP 2025 Race</div>', unsafe_allow_html=True)
+st.markdown('<div class="update-info">📅 Last Data Update: Canadian GP 2025</div>', unsafe_allow_html=True)
 
 # Train model function for cloud deployment
 @st.cache_resource
@@ -471,21 +471,22 @@ with tab1:
 
 # TAB 2: Qualifying Predictions
 with tab2:
-    # Sidebar - Race Setup (only for Tab 2)
-    st.sidebar.markdown('<div class="sub-header">🏁 Race Setup</div>', unsafe_allow_html=True)
-    
-    race_name = st.sidebar.selectbox(
-        "Select Race",
-        ["Austrian Grand Prix", "British Grand Prix", "Hungarian Grand Prix", 
-         "Belgian Grand Prix", "Dutch Grand Prix", "Custom Race"]
-    )
-    
-    # Weather conditions
-    st.sidebar.markdown("**Weather Conditions**")
-    is_wet = st.sidebar.checkbox("Wet Race (Rain Expected)", value=False)
-    air_temp = st.sidebar.slider("Air Temperature (°C)", 15, 40, 25)
-    track_temp = st.sidebar.slider("Track Temperature (°C)", 20, 50, 35)
-    humidity = st.sidebar.slider("Humidity (%)", 30, 90, 60)
+    # Race Setup and Weather (only for Tab 2)
+    with st.sidebar:
+        st.markdown('<div class="sub-header">🏁 Race Setup</div>', unsafe_allow_html=True)
+        
+        race_name = st.selectbox(
+            "Select Race",
+            ["Austrian Grand Prix", "British Grand Prix", "Hungarian Grand Prix", 
+             "Belgian Grand Prix", "Dutch Grand Prix", "Custom Race"]
+        )
+        
+        # Weather conditions
+        st.markdown("**Weather Conditions**")
+        is_wet = st.checkbox("Wet Race (Rain Expected)", value=False)
+        air_temp = st.slider("Air Temperature (°C)", 15, 40, 25)
+        track_temp = st.slider("Track Temperature (°C)", 20, 50, 35)
+        humidity = st.slider("Humidity (%)", 30, 90, 60)
     
     # Initialize session state
     if 'tab2_predictions' not in st.session_state:
