@@ -556,7 +556,7 @@ with tab2:
                     
                     # Get latest driver and team stats from training data
                     driver_stats = get_latest_driver_stats(training_data, driver_name)
-                    team_stats = get_latest_team_stats(training_data, team_name)
+                    team_stats = get_latest_team_stats(training_data, team)
                     
                     # Create basic feature set
                     driver_data = {
