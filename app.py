@@ -77,7 +77,7 @@ st.markdown('<h1 class="main-header">🏎️ F1 Race Predictor</h1>', unsafe_all
 st.markdown("**Predict top 3 finishers using a Machine Learning model trained on 2023-2025 F1 data**")
 
 # Last data update info
-st.markdown('<div class="update-info">📅 Last Data Update: British GP 2025</div>', unsafe_allow_html=True)
+st.markdown('<div class="update-info">📅 Last Data Update: Canadian GP 2025</div>', unsafe_allow_html=True)
 
 # Train model function for cloud deployment
 @st.cache_resource
@@ -85,9 +85,6 @@ def load_or_train_model():
     """Load saved model or retrain if not available/incompatible"""
     
     model_file = 'f1_prediction_model.pkl'
-    
-    # For cloud deployment, always retrain to avoid compatibility issues
-    st.info("🔄 Training model with cloud environment for compatibility...")
     
     # Check for training data
     data_file = 'enhanced_combined.csv'
@@ -101,93 +98,88 @@ def load_or_train_model():
         """)
         st.stop()
     
-    # Retrain model
-    with st.spinner("🏎️ Training F1 prediction model... (this may take a minute)"):
-        
-        # Load data
-        df = pd.read_csv(data_file)
-        st.info(f"📊 Loaded {len(df)} records for training")
-        
-        # Create target variable
-        df['top_3_finish'] = (df['race_position'] <= 3).astype(int)
-        
-        # Feature selection (key features that should exist)
-        feature_columns = [
-            'qualifying_position', 'driver_races_completed', 'driver_recent_avg_position',
-            'team_season_avg_position', 'driver_circuit_avg_position', 'driver_career_wins',
-            'driver_career_podiums', 'driver_career_points_rate', 'driver_recent_avg_qual_position',
-            'driver_recent_wins', 'driver_recent_podiums', 'team_season_wins',
-            'team_season_podiums', 'team_season_points_rate', 'is_wet_race',
-            'avg_air_temp', 'avg_track_temp', 'avg_humidity', 'total_rainfall'
-        ]
-        
-        # Check available features
-        available_features = [col for col in feature_columns if col in df.columns]
-        
-        # Prepare data
-        X = df[available_features].copy()
-        y = df['top_3_finish'].copy()
-        
-        # Handle boolean columns
-        bool_columns = X.select_dtypes(include=['bool']).columns
-        if len(bool_columns) > 0:
-            X[bool_columns] = X[bool_columns].astype(int)
-        
-        # Handle missing values
-        imputer = SimpleImputer(strategy='median')
-        X_processed = imputer.fit_transform(X)
-        
-        # Train/test split by year
-        train_mask = df['meeting_year'].isin([2023, 2024])
-        test_mask = df['meeting_year'] == 2025
-        
-        X_train = X_processed[train_mask]
-        X_test = X_processed[test_mask]
-        y_train = y[train_mask]
-        y_test = y[test_mask]
-        
-        # Train Random Forest
-        model = RandomForestClassifier(
-            random_state=42,
-            n_estimators=100,  # Reduced for faster training
-            max_depth=10,
-            class_weight='balanced'
-        )
-        
-        model.fit(X_train, y_train)
-        
-        # Evaluate
-        test_accuracy = model.score(X_test, y_test)
-        test_auc = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])
-        
-        # Create model package
-        model_package = {
-            'model': model,
-            'imputer': imputer,
-            'features': available_features,
-            'model_type': 'Random Forest',
-            'model_version': '4.0_cloud',
-            'performance_metrics': {
-                'test_accuracy': test_accuracy,
-                'test_auc': test_auc,
-                'features_count': len(available_features),
-                'train_samples': len(X_train),
-                'test_samples': len(X_test)
-            },
-            'training_years': [2023, 2024],
-            'validation_year': 2025,
-            'training_data': df  # Store the training data for Tab 1 predictions
-        }
-        
-        # Save model
-        try:
-            joblib.dump(model_package, model_file)
-        except:
-            pass  # Don't fail if can't save
-        
-        st.success(f"✅ Model trained! Accuracy: {test_accuracy:.1%}, AUC: {test_auc:.3f}")
-        
-        return model_package
+    # Load data
+    df = pd.read_csv(data_file)
+    
+    # Create target variable
+    df['top_3_finish'] = (df['race_position'] <= 3).astype(int)
+    
+    # Feature selection (key features that should exist)
+    feature_columns = [
+        'qualifying_position', 'driver_races_completed', 'driver_recent_avg_position',
+        'team_season_avg_position', 'driver_circuit_avg_position', 'driver_career_wins',
+        'driver_career_podiums', 'driver_career_points_rate', 'driver_recent_avg_qual_position',
+        'driver_recent_wins', 'driver_recent_podiums', 'team_season_wins',
+        'team_season_podiums', 'team_season_points_rate', 'is_wet_race',
+        'avg_air_temp', 'avg_track_temp', 'avg_humidity', 'total_rainfall'
+    ]
+    
+    # Check available features
+    available_features = [col for col in feature_columns if col in df.columns]
+    
+    # Prepare data
+    X = df[available_features].copy()
+    y = df['top_3_finish'].copy()
+    
+    # Handle boolean columns
+    bool_columns = X.select_dtypes(include=['bool']).columns
+    if len(bool_columns) > 0:
+        X[bool_columns] = X[bool_columns].astype(int)
+    
+    # Handle missing values
+    imputer = SimpleImputer(strategy='median')
+    X_processed = imputer.fit_transform(X)
+    
+    # Train/test split by year
+    train_mask = df['meeting_year'].isin([2023, 2024])
+    test_mask = df['meeting_year'] == 2025
+    
+    X_train = X_processed[train_mask]
+    X_test = X_processed[test_mask]
+    y_train = y[train_mask]
+    y_test = y[test_mask]
+    
+    # Train Random Forest
+    model = RandomForestClassifier(
+        random_state=42,
+        n_estimators=100,  # Reduced for faster training
+        max_depth=10,
+        class_weight='balanced'
+    )
+    
+    model.fit(X_train, y_train)
+    
+    # Evaluate
+    test_accuracy = model.score(X_test, y_test)
+    test_auc = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])
+    
+    # Create model package
+    model_package = {
+        'model': model,
+        'imputer': imputer,
+        'features': available_features,
+        'model_type': 'Random Forest',
+        'model_version': '4.0_cloud',
+        'performance_metrics': {
+            'test_accuracy': test_accuracy,
+            'test_auc': test_auc,
+            'features_count': len(available_features),
+            'train_samples': len(X_train),
+            'test_samples': len(X_test)
+        },
+        'training_years': [2023, 2024],
+        'validation_year': 2025,
+        'training_data': df,  # Store the training data for Tab 1 predictions
+        'data_records': len(df)  # Store record count for sidebar
+    }
+    
+    # Save model
+    try:
+        joblib.dump(model_package, model_file)
+    except:
+        pass  # Don't fail if can't save
+    
+    return model_package
 
 # Load model
 model_package = load_or_train_model()
@@ -206,6 +198,7 @@ st.sidebar.markdown(f"**Version**: {model_package['model_version']}")
 st.sidebar.markdown(f"**Accuracy**: {model_package['performance_metrics']['test_accuracy']:.1%}")
 st.sidebar.markdown(f"**AUC**: {model_package['performance_metrics']['test_auc']:.3f}")
 st.sidebar.markdown(f"**Features**: {model_package['performance_metrics']['features_count']}")
+st.sidebar.markdown(f"**Data Records**: {model_package['data_records']}")
 
 # Real 2025 drivers
 @st.cache_data
@@ -237,7 +230,6 @@ def get_default_drivers():
 
 # Circuit weather defaults
 CIRCUIT_WEATHER_DEFAULTS = {
-    "British Grand Prix": {"air_temp": 18, "track_temp": 25, "humidity": 75, "is_wet": True},
     "Belgian Grand Prix": {"air_temp": 20, "track_temp": 28, "humidity": 70, "is_wet": False},
     "Hungarian Grand Prix": {"air_temp": 28, "track_temp": 42, "humidity": 55, "is_wet": False}
 }
@@ -415,7 +407,7 @@ with tab1:
     with col1:
         selected_race = st.selectbox(
             "Select Upcoming Race:",
-            ["British Grand Prix", "Belgian Grand Prix", "Hungarian Grand Prix"]
+            ["Belgian Grand Prix", "Hungarian Grand Prix"]
         )
     
     with col2:
@@ -477,8 +469,7 @@ with tab2:
         
         race_name = st.selectbox(
             "Select Race",
-            ["Austrian Grand Prix", "British Grand Prix", "Hungarian Grand Prix", 
-             "Belgian Grand Prix", "Dutch Grand Prix", "Custom Race"]
+            ["Hungarian Grand Prix", "Belgian Grand Prix", "Dutch Grand Prix", "Custom Race"]
         )
         
         # Weather conditions
