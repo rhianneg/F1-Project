@@ -77,7 +77,7 @@ st.markdown('<h1 class="main-header">🏎️ F1 Race Predictor</h1>', unsafe_all
 st.markdown("**Predict top 3 finishers using a Machine Learning model trained on 2023-2025 F1 data**")
 
 # Last data update info
-st.markdown('<div class="update-info">📅 Last Data Update: Canadian GP 2025</div>', unsafe_allow_html=True)
+st.markdown('<div class="update-info">📅 Last Data Update: Hungarian GP 2025</div>', unsafe_allow_html=True)
 
 # Train model function for cloud deployment
 @st.cache_resource
@@ -230,6 +230,7 @@ def get_default_drivers():
 
 # Circuit weather defaults
 CIRCUIT_WEATHER_DEFAULTS = {
+    "British Grand Prix": {"air_temp": 18, "track_temp": 25, "humidity": 75, "is_wet": True},
     "Belgian Grand Prix": {"air_temp": 20, "track_temp": 28, "humidity": 70, "is_wet": False},
     "Hungarian Grand Prix": {"air_temp": 28, "track_temp": 42, "humidity": 55, "is_wet": False}
 }
@@ -407,7 +408,7 @@ with tab1:
     with col1:
         selected_race = st.selectbox(
             "Select Upcoming Race:",
-            ["Belgian Grand Prix", "Hungarian Grand Prix"]
+            ["British Grand Prix", "Belgian Grand Prix", "Hungarian Grand Prix"]
         )
     
     with col2:
@@ -469,7 +470,8 @@ with tab2:
         
         race_name = st.selectbox(
             "Select Race",
-            ["Hungarian Grand Prix", "Belgian Grand Prix", "Dutch Grand Prix", "Custom Race"]
+            ["Austrian Grand Prix", "British Grand Prix", "Hungarian Grand Prix", 
+             "Belgian Grand Prix", "Dutch Grand Prix", "Custom Race"]
         )
         
         # Weather conditions
