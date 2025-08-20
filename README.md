@@ -1,5 +1,5 @@
 Project Link: https://f1-prediction-project.streamlit.app/
-Last Data Update: British GP 2025 race
+Last Data Update: Hungarian GP 2025 race
 
 # My F1 Race Predictor
 
